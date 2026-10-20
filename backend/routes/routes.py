@@ -17,14 +17,28 @@ async def review_resume(
 
         ai_prompt = f"""
         You are an expert technical recruiter and resume reviewer.
-        You are given the following resume and a provided job description.
-        Analyze the resume against the job description.
-        Then grade the match on a scale of 0 to 100 based on experience, education, skills, projects, and tech stack.
 
-        Job Description: {jobDescription}
-        Resume: {extracted_text}
+        Analyze the resume against the job description and calculate a match score
+        from 0 to 100 based on experience, education, skills, projects, and tech stack.
 
-        Provide a concise match score (out of 100) and a brief breakdown of strengths and areas for improvement.
+        Return only valid JSON matching this exact structure:
+        {{
+          "matchScore": number,
+          "summary": "string",
+          "strengths": ["string"],
+          "areasForImprovement": ["string"]
+        }}
+
+        Requirements:
+        - matchScore must be a number from 0 to 100.
+        - strengths and areasForImprovement must be JSON arrays of strings.
+        - Do not include Markdown, code fences, or any text outside the JSON object.
+
+        Job Description:
+        {jobDescription}
+
+        Resume:
+        {extracted_text}
         """
 
         ai_analysis = generate_content(ai_prompt)
