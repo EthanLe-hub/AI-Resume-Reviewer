@@ -1,30 +1,47 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import './App.css';
+import { ReviewResult } from './components/ReviewResult';
+import type { ReviewAnalysis } from './types';
 
 const API_URL = 'http://localhost:8000/api/review-resume';
+
+function parseReviewAnalysis(value: unknown): ReviewAnalysis {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('The backend returned an invalid review format.');
+  }
+
+  return parsed as ReviewAnalysis;
+}
 
 function App() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<ReviewAnalysis | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError('');
+    setResult(null);
 
-    if (!resumeFile || !jobDescription.trim()) {
-      setError('Please provide a PDF and job description.');
+    if (!resumeFile || !resumeFile.name.toLowerCase().endsWith('.pdf')) {
+      setError('Please provide a PDF resume.');
+      return;
+    }
+
+    if (!jobDescription.trim()) {
+      setError('Please provide a job description.');
       return;
     }
 
     const formData = new FormData();
     formData.append('resumeFile', resumeFile);
-    formData.append('jobDescription', jobDescription);
+    formData.append('jobDescription', jobDescription.trim());
 
     setLoading(true);
-    setError('');
-    setResult(null);
 
     try {
       const response = await fetch(API_URL, {
@@ -34,11 +51,11 @@ function App() {
 
       const data = await response.json();
 
-      if (data.error) {
-        throw new Error(data.error);
+      if (!response.ok || data.error) {
+        throw new Error(data.error || `Request failed with status ${response.status}.`);
       }
 
-      setResult(data.matchScore);
+      setResult(parseReviewAnalysis(data.analysis ?? data.matchScore ?? data));
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -60,9 +77,7 @@ function App() {
           <input
             type="file"
             accept=".pdf,application/pdf"
-            onChange={(event) =>
-              setResumeFile(event.target.files?.[0] ?? null)
-            }
+            onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
           />
         </label>
 
@@ -80,7 +95,7 @@ function App() {
       </form>
 
       {error && <p>{error}</p>}
-      {result && <pre>{result}</pre>}
+      {result && <ReviewResult result={result} />}
     </main>
   );
 }
